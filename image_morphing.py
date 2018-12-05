@@ -27,6 +27,7 @@ class App(QMainWindow):
         self.targetLoaded = False
         self.resultLoaded = False
 
+        self.triangled = False
         self.morphed = False
 
         # Fix the size so boxes cannot expand
@@ -87,6 +88,7 @@ class App(QMainWindow):
         # If there is an input or a result image loaded, remove them
         if self.inputLoaded:
             self.deleteItemsFromWidget(self.inputGroupBox.layout())
+            self.triangled = False
 
         if self.resultLoaded:
             self.deleteItemsFromWidget(self.resultGroupBox.layout())
@@ -115,6 +117,7 @@ class App(QMainWindow):
         # If there is an target or a result image loaded, remove them
         if self.targetLoaded:
             self.deleteItemsFromWidget(self.targetGroupBox.layout())
+            self.triangled = False
             if self.resultLoaded and self.morphed:
                 self.deleteItemsFromWidget(self.resultGroupBox.layout())
                 self.resultLoaded = True
@@ -238,14 +241,19 @@ class App(QMainWindow):
         if self.checkMissingLoadedImages():
             return
 
-        triangledInputImage = self.createTriangulatedImage(self.inputImage, self.inputPoints)
-        triangledTargetImage = self.createTriangulatedImage(self.targetImage, self.targetPoints)
+        iSD, triangledInputImage = self.createTriangulatedImage(self.inputImage, self.inputPoints)
+        tSD, triangledTargetImage = self.createTriangulatedImage(self.targetImage, self.targetPoints)
+
+        self.inputSD = iSD
+        self.targetSD = tSD
 
         self.deleteItemsFromWidget(self.inputGroupBox.layout())
         self.addImageToGroupBox(triangledInputImage, self.inputGroupBox, 'Input image')
 
         self.deleteItemsFromWidget(self.targetGroupBox.layout())
         self.addImageToGroupBox(triangledTargetImage, self.targetGroupBox, 'Target image')
+
+        self.triangled = True
 
     def createTriangulatedImage(self, image, points):
         height, width, _ = image.shape
@@ -271,7 +279,7 @@ class App(QMainWindow):
                 cv2.line(imageCopy, p2, p3, (255,255,255), 1, cv2.LINE_AA, 0)
                 cv2.line(imageCopy, p3, p1, (255,255,255), 1, cv2.LINE_AA, 0)
 
-        return imageCopy
+        return (sd, imageCopy)
 
     def isInRectangle(self, r, points):
         for p in points:
@@ -281,6 +289,16 @@ class App(QMainWindow):
 
     def morphButtonClicked(self):
         if self.checkMissingLoadedImages():
+            return
+        elif not self.triangled:
+            # Error: "First triangulate the images" in MessageBox
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle("Images are not triangulated.")
+            msg.setText('First triangulate the images!')
+            msg.setStandardButtons(QMessageBox.Ok)
+
+            msg.exec()
             return
 
         return NotImplemented
