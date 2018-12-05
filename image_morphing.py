@@ -9,7 +9,6 @@ from PyQt5.QtWidgets import QLabel
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 from matplotlib.figure import Figure
-from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
@@ -63,9 +62,9 @@ class App(QMainWindow):
 		height, width, _ = image.shape
 
 		points.append((int(0), int(0)))
-		points.append((int(height-1), int(0)))
-		points.append((int(0), int(width-1)))
-		points.append((int(height-1), int(width-1)))
+		points.append((int(width-1), int(0)))
+		points.append((int(0), int(height-1)))
+		points.append((int(width-1), int(height-1)))
 
 		return points
 
@@ -235,10 +234,20 @@ class App(QMainWindow):
 		if self.checkMissingLoadedImages():
 			return
 
-		inputTriangles = Delaunay(self.inputPoints)
-		targetTriangles = Delaunay(self.targetPoints)
+		inputImageCopy = self.inputImage
+		targetImageCopy = self.targetImage
 
-		return NotImplemented
+		for p in self.inputPoints:
+			cv2.circle(inputImageCopy, p, 2, (255,255,255), cv2.FILLED, cv2.LINE_AA, 0)
+
+		for p in self.targetPoints:
+			cv2.circle(targetImageCopy, p, 2, (255,255,255), cv2.FILLED, cv2.LINE_AA, 0)
+
+		self.deleteItemsFromWidget(self.inputGroupBox.layout())
+		self.addImageToGroupBox(inputImageCopy, self.inputGroupBox, 'Input image')
+
+		self.deleteItemsFromWidget(self.targetGroupBox.layout())
+		self.addImageToGroupBox(targetImageCopy, self.targetGroupBox, 'Target image')
 
 	def morphButtonClicked(self):
 		if self.checkMissingLoadedImages():
