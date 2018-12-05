@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import QLabel
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 from matplotlib.figure import Figure
+from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
@@ -27,7 +28,7 @@ class App(QMainWindow):
 		self.targetLoaded = False
 		self.resultLoaded = False
 
-		self.morped = False
+		self.morphed = False
 
 		# Fix the size so boxes cannot expand
 		self.setFixedSize(self.geometry().width(), self.geometry().height())
@@ -49,6 +50,27 @@ class App(QMainWindow):
 		label.setPixmap(pix)
 		label.setAlignment(Qt.AlignCenter)
 		groupBox.layout().addWidget(label)
+
+	def getPointsFromFile(self, fileName, image):
+		points = []
+
+		textFile = open(fileName)
+
+		for line in textFile:
+			x, y = line.split(",")
+			points.append((int(x), int(y)))
+
+		height, width, _ = image.shape
+
+		points.append((int(0), int(0)))
+		points.append((int(height-1), int(0)))
+		points.append((int(0), int(width-1)))
+		points.append((int(height-1), int(width-1)))
+
+		return points
+
+	def convertImagePathToPointsPath(self, fileName):
+		return fileName[0:-3] + "txt"
 
 	def openInputImage(self):
 		# This function is called when the user clicks File->Input Image.
@@ -74,6 +96,8 @@ class App(QMainWindow):
 		self.resultImage = self.inputImage
 		self.resultLoaded = True
 
+		self.inputPoints = self.getPointsFromFile(self.convertImagePathToPointsPath(fName[0]), self.inputImage)
+
 		self.addImageToGroupBox(self.inputImage, self.inputGroupBox, 'Input image')
 		self.addImageToGroupBox(self.resultImage, self.resultGroupBox, 'Result image')
 
@@ -96,6 +120,8 @@ class App(QMainWindow):
 
 		self.targetImage = cv2.imread(fName[0]) # Read the image
 		self.targetLoaded = True
+
+		self.targetPoints = self.getPointsFromFile(self.convertImagePathToPointsPath(fName[0]), self.targetImage)
 
 		self.addImageToGroupBox(self.targetImage, self.targetGroupBox, 'Target image')
 
@@ -208,6 +234,9 @@ class App(QMainWindow):
 	def createTriangulationButtonClicked(self):
 		if self.checkMissingLoadedImages():
 			return
+
+		inputTriangles = Delaunay(self.inputPoints)
+		targetTriangles = Delaunay(self.targetPoints)
 
 		return NotImplemented
 
