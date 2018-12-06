@@ -241,11 +241,34 @@ class App(QMainWindow):
         if self.checkMissingLoadedImages():
             return
 
-        iT, triangledInputImage = self.createTriangulatedImage(self.inputImage, self.inputPoints)
-        tT, triangledTargetImage = self.createTriangulatedImage(self.targetImage, self.targetPoints)
+        height, width, _ = self.inputImage.shape
 
-        self.inputTriangles = iT
-        self.targetTriangles = tT
+        rectangle = (0, 0, width, height)
+        sd = cv2.Subdiv2D(rectangle)
+
+        for p in self.inputPoints:
+            sd.insert(p)
+
+        triangles = sd.getTriangleList()
+
+        triangleIndices = []
+
+        for t in triangles:
+            p1 = (t[0], t[1]) # Point 1
+            p2 = (t[2], t[3]) # Point 2
+            p3 = (t[4], t[5]) # Point 3
+
+            if self.isInRectangle(rectangle, [p1, p2, p3]):
+                p1Index = self.inputPoints.index(p1)
+                p2Index = self.inputPoints.index(p2)
+                p3Index = self.inputPoints.index(p3)
+                triangleIndices.append([p1Index, p2Index, p3Index])
+
+        iTrianglePoints, triangledInputImage = self.createTriangulatedImage(self.inputImage, triangleIndices, self.inputPoints)
+        tTrianglePoints, triangledTargetImage = self.createTriangulatedImage(self.targetImage, triangleIndices, self.targetPoints)
+
+        self.inputTriangles = iTrianglePoints
+        self.targetTriangles = tTrianglePoints
 
         self.deleteItemsFromWidget(self.inputGroupBox.layout())
         self.addImageToGroupBox(triangledInputImage, self.inputGroupBox, 'Input image')
@@ -255,31 +278,26 @@ class App(QMainWindow):
 
         self.triangled = True
 
-    def createTriangulatedImage(self, image, points):
-        height, width, _ = image.shape
-
-        rectangle = (0, 0, width, height)
-        sd = cv2.Subdiv2D(rectangle)
-
+    def createTriangulatedImage(self, image, indices, points):
         imageCopy = image.copy()
 
         for p in points:
             cv2.circle(imageCopy, p, 2, (255,255,255), cv2.FILLED, cv2.LINE_AA, 0)
-            sd.insert(p)
 
-        triangles = sd.getTriangleList()
+        trianglePoints = []
 
-        for t in triangles:
-            p1 = (t[0], t[1]) # Point 1
-            p2 = (t[2], t[3]) # Point 2
-            p3 = (t[4], t[5]) # Point 3
+        for i in indices:
+            p1 = points[i[0]] # Point 1
+            p2 = points[i[1]] # Point 2
+            p3 = points[i[2]] # Point 3
 
-            if self.isInRectangle(rectangle, [p1, p2, p3]):
-                cv2.line(imageCopy, p1, p2, (255,255,255), 1, cv2.LINE_AA, 0)
-                cv2.line(imageCopy, p2, p3, (255,255,255), 1, cv2.LINE_AA, 0)
-                cv2.line(imageCopy, p3, p1, (255,255,255), 1, cv2.LINE_AA, 0)
+            cv2.line(imageCopy, p1, p2, (255,255,255), 1, cv2.LINE_AA, 0)
+            cv2.line(imageCopy, p2, p3, (255,255,255), 1, cv2.LINE_AA, 0)
+            cv2.line(imageCopy, p3, p1, (255,255,255), 1, cv2.LINE_AA, 0)
 
-        return (triangles, imageCopy)
+            trianglePoints.append([p1, p2, p3])
+
+        return (trianglePoints, imageCopy)
 
     def isInRectangle(self, r, points):
         for p in points:
@@ -301,8 +319,16 @@ class App(QMainWindow):
             msg.exec()
             return
 
-        
+        for c in range(len(self.inputTriangles)):
+            inputTriangle = self.inputTriangles[c]
+            targetTriangle = self.targetTriangles[c]
 
+            self.morphTriangle(self.resultImage, inputTriangle, targetTriangle)
+
+        self.deleteItemsFromWidget(self.resultGroupBox.layout())
+        self.addImageToGroupBox(self.resultImage, self.resultGroupBox, 'Result image')
+
+    def morphTriangle(self, iT, tT):
         return NotImplemented
 
     def deleteItemsFromWidget(self, layout):
