@@ -241,11 +241,11 @@ class App(QMainWindow):
         if self.checkMissingLoadedImages():
             return
 
-        iSD, triangledInputImage = self.createTriangulatedImage(self.inputImage, self.inputPoints)
-        tSD, triangledTargetImage = self.createTriangulatedImage(self.targetImage, self.targetPoints)
+        iT, triangledInputImage = self.createTriangulatedImage(self.inputImage, self.inputPoints)
+        tT, triangledTargetImage = self.createTriangulatedImage(self.targetImage, self.targetPoints)
 
-        self.inputSD = iSD
-        self.targetSD = tSD
+        self.inputTriangles = iT
+        self.targetTriangles = tT
 
         self.deleteItemsFromWidget(self.inputGroupBox.layout())
         self.addImageToGroupBox(triangledInputImage, self.inputGroupBox, 'Input image')
@@ -279,7 +279,7 @@ class App(QMainWindow):
                 cv2.line(imageCopy, p2, p3, (255,255,255), 1, cv2.LINE_AA, 0)
                 cv2.line(imageCopy, p3, p1, (255,255,255), 1, cv2.LINE_AA, 0)
 
-        return (sd, imageCopy)
+        return (triangles, imageCopy)
 
     def isInRectangle(self, r, points):
         for p in points:
@@ -300,6 +300,8 @@ class App(QMainWindow):
 
             msg.exec()
             return
+
+        
 
         return NotImplemented
 
