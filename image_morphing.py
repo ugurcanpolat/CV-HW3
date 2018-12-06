@@ -323,13 +323,40 @@ class App(QMainWindow):
             inputTriangle = self.inputTriangles[c]
             targetTriangle = self.targetTriangles[c]
 
-            self.morphTriangle(self.resultImage, inputTriangle, targetTriangle)
+            self.morphTriangle(inputTriangle, targetTriangle)
 
         self.deleteItemsFromWidget(self.resultGroupBox.layout())
         self.addImageToGroupBox(self.resultImage, self.resultGroupBox, 'Result image')
+        self.morphed = True
 
     def morphTriangle(self, iT, tT):
-        return NotImplemented
+        srcR = cv2.boundingRect(np.float32(iT))
+        dstR = cv2.boundingRect(np.float32(tT))
+
+        srcTriangleOffset = []
+        dstTriangleOffset = []
+
+        for c in range(0, 3):
+            srcTriangleOffset.append(((iT[c][0] - srcR[0]),(iT[c][1] - srcR[1])))
+            dstTriangleOffset.append(((tT[c][0] - dstR[0]),(tT[c][1] - dstR[1])))
+
+        mask = np.zeros((dstR[3], dstR[2], 3), dtype = np.float32)
+        cv2.fillConvexPoly(mask, np.int32(dstTriangleOffset), (1.0, 1.0, 1.0), cv2.LINE_AA, 0)
+
+        imgRect = self.inputImage[srcR[1]:srcR[1]+srcR[3], srcR[0]:srcR[0]+srcR[2]]
+
+        size = (dstR[2], dstR[3])
+        warpedImage = self.affineTransform(imgRect, srcTriangleOffset, dstTriangleOffset, size)
+
+        self.resultImage[dstR[1]:dstR[1]+dstR[3], dstR[0]:dstR[0]+dstR[2]] *= np.uint8(1 - mask) 
+        self.resultImage[dstR[1]:dstR[1]+dstR[3], dstR[0]:dstR[0]+dstR[2]] += np.uint8(warpedImage * mask)
+
+    def affineTransform(self, src, srcTri, dstTri, size):
+        ## THIS WILL BE IMPLEMENTED ##
+        warpMat = cv2.getAffineTransform( np.float32(srcTri), np.float32(dstTri) )
+        dst = cv2.warpAffine( src, warpMat, (size[0], size[1]), None, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101 )
+
+        return dst
 
     def deleteItemsFromWidget(self, layout):
         # Deletes items in the given layout
