@@ -340,6 +340,7 @@ class App(QMainWindow):
             srcTriangleOffset.append(((iT[c][0] - srcR[0]),(iT[c][1] - srcR[1])))
             dstTriangleOffset.append(((tT[c][0] - dstR[0]),(tT[c][1] - dstR[1])))
 
+        # Mask will be used to only get pixels from inside of the triangle
         mask = np.zeros((dstR[3], dstR[2], 3), dtype = np.float32)
         cv2.fillConvexPoly(mask, np.int32(dstTriangleOffset), (1.0, 1.0, 1.0), cv2.LINE_AA, 0)
 
@@ -351,12 +352,66 @@ class App(QMainWindow):
         self.resultImage[dstR[1]:dstR[1]+dstR[3], dstR[0]:dstR[0]+dstR[2]] *= np.uint8(1 - mask) 
         self.resultImage[dstR[1]:dstR[1]+dstR[3], dstR[0]:dstR[0]+dstR[2]] += np.uint8(warpedImage * mask)
 
-    def affineTransform(self, src, srcTri, dstTri, size):
-        ## THIS WILL BE IMPLEMENTED ##
-        warpMat = cv2.getAffineTransform( np.float32(srcTri), np.float32(dstTri) )
-        dst = cv2.warpAffine( src, warpMat, (size[0], size[1]), None, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101 )
+    def findAffineMatrix(self, srcTri, dstTri):
+        pointMatArray = []
 
-        return dst
+        for p in srcTri:
+            x, y = p
+            pointMatArray.append([x, y, 1, 0, 0, 0])
+
+        for p in srcTri:
+            x, y = p
+            pointMatArray.append([0, 0, 0, x, y, 1])
+
+        pointMatrix = np.matrix(pointMatArray)
+
+        dstMatArrayX = []
+        dstMatArrayY = []
+
+        for p in dstTri:
+            x, y = p
+            dstMatArrayX.append(x)
+            dstMatArrayY.append(y)
+
+        destMatrix = np.matrix(dstMatArrayX + dstMatArrayY)
+
+        affineMatrix = np.matmul(np.linalg.inv(pointMatrix), np.transpose(destMatrix))
+
+        return affineMatrix.tolist()
+
+    def affineTransform(self, src, srcTri, dstTri, size):
+        affineMat = self.findAffineMatrix(srcTri, dstTri)
+
+        arrangedAffineMat = []
+
+        arrangedAffineMat.append([affineMat[0][0], affineMat[1][0], affineMat[2][0]])
+        arrangedAffineMat.append([affineMat[3][0], affineMat[4][0], affineMat[5][0]])
+        arrangedAffineMat.append([0., 0., 1.])
+
+        result = np.zeros((size[1],size[0],3))
+
+        inverseAffineMat = np.linalg.inv(arrangedAffineMat)
+
+        height, width, _ = src.shape
+
+        for x in range(size[0]):
+            for y in range(size[1]):
+                mul = np.matmul(inverseAffineMat, np.asarray([x, y, 1]))
+
+                coordinate = [int(round(mul[0])), int(round(mul[1]))]
+
+                if coordinate[0] < 0: 
+                    coordinate[0] = 0
+                elif coordinate[0] >= width:
+                    coordinate[0] = width - 1
+                if coordinate[1] < 0:
+                    coordinate[1] = 0
+                elif coordinate[1] >= height:
+                    coordinate[1] = height - 1
+
+                result[y,x] = src[coordinate[1], coordinate[0]]
+
+        return result
 
     def deleteItemsFromWidget(self, layout):
         # Deletes items in the given layout
